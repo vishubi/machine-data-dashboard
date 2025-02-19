@@ -20,7 +20,7 @@ except FileNotFoundError:
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Overview", "Time-Series Analysis", "Summary Statistics", "Anomaly Detection", "Correlation Matrix", "Multiple Plots", "K-Means Clustering", "Time to Failure"])
+page = st.sidebar.radio("Go to", ["Overview", "Time-Series Analysis", "Summary Statistics", "Anomaly Detection", "Correlation Matrix", "Multiple Plots", "K-Means Clustering"])
 
 # Define a custom color palette
 custom_colors = px.colors.qualitative.Pastel
@@ -81,22 +81,20 @@ if page == "K-Means Clustering":
     
     if selected_features:
         scaler = StandardScaler()
-        df_scaled = scaler.fit_transform(df[selected_features])
+        df_selected = df[selected_features].dropna()
+        df_scaled = scaler.fit_transform(df_selected)
         
         kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-        df["Cluster"] = kmeans.fit_predict(df_scaled)
+        df.loc[df_selected.index, "Cluster"] = kmeans.fit_predict(df_scaled)
         
-        fig = px.scatter(df, x=selected_features[0], y=selected_features[1], color=df["Cluster"].astype(str),
+        fig = px.scatter(df_selected, x=selected_features[0], y=selected_features[1], color=df.loc[df_selected.index, "Cluster"].astype(str),
                          title="K-Means Clustering Results", labels={selected_features[0]: f"{selected_features[0]} (units)",
                          selected_features[1]: f"{selected_features[1]} (units)"})
         st.plotly_chart(fig, use_container_width=True)
-
-if page == "Time to Failure":
-    st.header("Time to Failure Estimation")
-    df['Time_To_Next_Failure'] = df['Timestamp'].diff().dt.total_seconds().fillna(0)
-    df.loc[df['Machine_Status'] == 0, 'Time_To_Next_Failure'] = np.nan
-    df['Time_To_Next_Failure'] = df['Time_To_Next_Failure'].fillna(method='bfill')
-    
-    fig = px.line(df, x="Timestamp", y="Time_To_Next_Failure", title="Estimated Time to Next Failure",
-                  labels={"Time_To_Next_Failure": "Time to Failure (seconds)"})
-    st.plotly_chart(fig, use_container_width=True)
+        
+        # Cluster Distribution Bar Chart
+        cluster_counts = df["Cluster"].value_counts().reset_index()
+        cluster_counts.columns = ["Cluster", "Count"]
+        fig_bar = px.bar(cluster_counts, x="Cluster", y="Count", title="Cluster Distribution",
+                         labels={"Cluster": "Cluster ID", "Count": "Number of Points"}, color="Cluster")
+        st.plotly_chart(fig_bar, use_container_width=True)
